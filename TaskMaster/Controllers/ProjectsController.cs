@@ -1,4 +1,4 @@
-namespace TaskMaster.Models;
+namespace TaskMaster.Controllers;
 
 public class ProjectsController
 {
