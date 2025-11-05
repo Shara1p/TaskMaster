@@ -35,7 +35,7 @@ public class TasksController : ControllerBase
         return task;
     }
 
-    [HttpGet("{id}/project")] // Логично - проект конкретной задачи
+    [HttpGet("{id}/project")]
     public async Task<ActionResult<Project>> GetProjectForTask(int id)
     {
         var task = await _dbContext.Tasks
@@ -57,7 +57,7 @@ public class TasksController : ControllerBase
             return BadRequest(ModelState);
         }
 
-        if (! await _dbContext.Projects.AnyAsync(p => p.Id == task.ProjectId))
+        if (!await _dbContext.Projects.AnyAsync(p => p.Id == task.ProjectId))
         {
             return BadRequest($"Project with ID {task.ProjectId} does not exist");
         }
@@ -75,6 +75,6 @@ public class TasksController : ControllerBase
             .FirstOrDefaultAsync(t => t.Id == task.Id);
         
         
-        return CreatedAtAction(nameof(GetTaskById), new { id = task.Id }, createdTask); 
+        return CreatedAtAction(nameof(CreateTask), new { id = task.Id }, createdTask); 
     }
 }
