@@ -1,8 +1,9 @@
-using System.Globalization;
+using Mapster;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TaskMaster.Data;
 using TaskMaster.Models;
+using TaskMaster.Models.DTO;
 
 namespace TaskMaster.Controllers;
 
@@ -18,13 +19,14 @@ public class TasksController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<TaskItem>>> GetAllTasks()
+    public async Task<ActionResult<IEnumerable<TaskItemResponse>>> GetAllTasks()
     {
-        return await _dbContext.Tasks.ToListAsync();
+        var tasks =  await _dbContext.Tasks.ToListAsync();
+        return tasks.Adapt<List<TaskItemResponse>>();
     }
 
     [HttpGet("{id}")]
-    public async Task<ActionResult<TaskItem>> GetTaskById(int id)
+    public async Task<ActionResult<TaskItemResponse>> GetTaskById(int id)
     {
         var task = await _dbContext.Tasks.FindAsync(id);
         if (task == null)
@@ -32,11 +34,11 @@ public class TasksController : ControllerBase
             return NotFound();
         }
 
-        return task;
+        return task.Adapt<TaskItemResponse>();
     }
 
     [HttpGet("{id}/project")]
-    public async Task<ActionResult<Project>> GetProjectForTask(int id)
+    public async Task<ActionResult<ProjectResponse>> GetProjectForTask(int id)
     {
         var task = await _dbContext.Tasks
             .Include(t => t.Project)
@@ -46,15 +48,28 @@ public class TasksController : ControllerBase
             return NotFound();
         }
 
-        return task.Project;
+        if (task.Project == null)
+        {
+            return NotFound("Project not found or task doesn't link to any project");
+        }
+        return task.Project.Adapt<ProjectResponse>();
     }
 
     [HttpPost]
-    public async Task<ActionResult<TaskItem>> CreateTask([FromBody] TaskItem task)
+    public async Task<ActionResult<TaskItem>> CreateTask([FromBody] CreateTaskItemDto task)
     {
         if (!ModelState.IsValid)
         {
             return BadRequest(ModelState);
+        }
+        
+        bool taskExists = await _dbContext.Tasks
+            .AnyAsync(t => t.ProjectId == task.ProjectId && 
+                           t.Title.ToLower() == task.Title.ToLower());
+    
+        if (taskExists)
+        {
+            return BadRequest($"Task '{task.Title}' already exists in this project");
         }
 
         if (!await _dbContext.Projects.AnyAsync(p => p.Id == task.ProjectId))
@@ -62,19 +77,17 @@ public class TasksController : ControllerBase
             return BadRequest($"Project with ID {task.ProjectId} does not exist");
         }
 
-        if (task.Created == default)
+        var newTask = new TaskItem
         {
-            task.Created = DateTime.Now;
-        }
+            Title = task.Title,
+            Description = task.Description,
+            Created = DateTime.Now,
+            DueDate = task.DueDate,
+        };
 
-        _dbContext.Add(task);
+        _dbContext.Add(newTask);
         await _dbContext.SaveChangesAsync();
         
-        var createdTask = await _dbContext.Tasks
-            .Include(t => t.Project)
-            .FirstOrDefaultAsync(t => t.Id == task.Id);
-        
-        
-        return CreatedAtAction(nameof(CreateTask), new { id = task.Id }, createdTask); 
+        return CreatedAtAction(nameof(GetTaskById), new { id = newTask.Id }, newTask.Adapt<TaskItemResponse>()); 
     }
 }

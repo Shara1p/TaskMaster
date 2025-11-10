@@ -1,7 +1,9 @@
+using Mapster;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TaskMaster.Data;
 using TaskMaster.Models;
+using TaskMaster.Models.DTO;
 
 namespace TaskMaster.Controllers;
 
@@ -17,13 +19,14 @@ public class ProjectsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<Project>>> GetAllProjects()
+    public async Task<ActionResult<IEnumerable<ProjectResponse>>> GetAllProjects()
     {
-        return await _dbContext.Projects.ToListAsync();
+        var projects = await _dbContext.Projects.ToListAsync();
+        return projects.Adapt<List<ProjectResponse>>();
     }
 
     [HttpGet("{id}")]
-    public async Task<ActionResult<Project>> GetProject(int id)
+    public async Task<ActionResult<ProjectResponse>> GetProject(int id)
     {
         var project = await _dbContext.Projects.FindAsync(id);
 
@@ -32,22 +35,23 @@ public class ProjectsController : ControllerBase
             return NotFound();
         }
 
-        return project;
+        return project.Adapt<ProjectResponse>();
     }
 
     [HttpGet("{id}/tasks")]
-    public async Task<ActionResult<IEnumerable<TaskItem>>> GetTasks(int id)
+    public async Task<ActionResult<IEnumerable<TaskItemResponse>>> GetTasks(int id)
     {
         if (!await _dbContext.Projects.AnyAsync(p => p.Id == id))
         {
             return NotFound();
         }
 
-        return await _dbContext.Tasks.Where(t => t.ProjectId == id).ToListAsync();
+        var tasks = await _dbContext.Tasks.Where(t => t.ProjectId == id).ToListAsync();
+        return tasks.Adapt<List<TaskItemResponse>>();
     }
 
     [HttpPost]
-    public async Task<ActionResult<Project>> CreateProject(Project project)
+    public async Task<ActionResult<Project>> CreateProject(CreateProjectDto project)
     {
         if (!ModelState.IsValid)
         {
@@ -59,13 +63,15 @@ public class ProjectsController : ControllerBase
             return BadRequest($"Project with name {project.Name} already exists");
         }
 
-        if (project.Created == default)
+        var newProject = new Project
         {
-            project.Created = DateTime.Now;
-        }
+            Name = project.Name,
+            Description = project.Description,
+            Created = DateTime.Now
+        };
 
-        _dbContext.Add(project);
+        _dbContext.Add(newProject);
         await _dbContext.SaveChangesAsync();
-        return CreatedAtAction(nameof(CreateProject), new { id = project.Id }, project);
+        return CreatedAtAction(nameof(GetProject), new { id = newProject.Id }, newProject.Adapt<ProjectResponse>());
     }
 }
