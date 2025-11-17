@@ -8,7 +8,15 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-builder.Services.AddDbContext<ApplicationDbContext>(options => options.UseSqlite("Data Source=taskmaster.db"));
+// Get database path - try root first (where app runs from based on cwd in launch.json)
+// then fallback to TaskMaster subdirectory
+var dbPath = "taskmaster.db";
+if (!File.Exists(dbPath))
+{
+    dbPath = Path.Combine("TaskMaster", "taskmaster.db");
+}
+var fullDbPath = Path.GetFullPath(dbPath);
+builder.Services.AddDbContext<ApplicationDbContext>(options => options.UseSqlite($"Data Source={fullDbPath}"));
 
 var app = builder.Build();
 
