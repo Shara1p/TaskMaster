@@ -21,14 +21,18 @@ public class ProjectsController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<ProjectResponse>>> GetAllProjects()
     {
-        var projects = await _dbContext.Projects.ToListAsync();
+        var projects = await _dbContext.Projects
+            .Include(p => p.Tasks)
+            .ToListAsync();
         return projects.Adapt<List<ProjectResponse>>();
     }
 
     [HttpGet("{id}")]
     public async Task<ActionResult<ProjectResponse>> GetProject(int id)
     {
-        var project = await _dbContext.Projects.FindAsync(id);
+        var project = await _dbContext.Projects
+            .Include(p => p.Tasks)
+            .FirstOrDefaultAsync(p => p.Id == id);
 
         if (project == null)
         {

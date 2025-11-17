@@ -83,6 +83,7 @@ public class TasksController : ControllerBase
             Description = task.Description,
             Created = DateTime.Now,
             DueDate = task.DueDate,
+            ProjectId = task.ProjectId
         };
 
         _dbContext.Add(newTask);

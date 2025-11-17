@@ -8,5 +8,5 @@ public class ProjectResponse
     
     public DateTime? Created { get; set; }
     
-    public List<TaskItem>? Tasks { get; set; }
+    public List<TaskItemResponse>? Tasks { get; set; }
 }
