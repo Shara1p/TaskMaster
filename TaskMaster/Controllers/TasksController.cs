@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using TaskMaster.Data;
 using TaskMaster.Models;
 using TaskMaster.Models.DTO;
+using TaskMaster.Services;
 
 namespace TaskMaster.Controllers;
 
@@ -12,33 +13,28 @@ namespace TaskMaster.Controllers;
 public class TasksController : ControllerBase
 {
     private readonly ApplicationDbContext _dbContext;
+    private readonly ITaskService _taskService;
 
-    public TasksController(ApplicationDbContext dbContext)
+    public TasksController(ApplicationDbContext dbContext, ITaskService taskService)
     {
         _dbContext = dbContext;
+        _taskService = taskService;
     }
 
     [HttpGet]
     public async Task<ActionResult<IEnumerable<TaskItemResponse>>> GetAllTasks()
     {
-        var tasks =  await _dbContext.Tasks.ToListAsync();
-        return tasks.Adapt<List<TaskItemResponse>>();
+        return await _taskService.GetAllTasksAsync();
     }
 
     [HttpGet("{id}")]
     public async Task<ActionResult<TaskItemResponse>> GetTaskById(int id)
     {
-        var task = await _dbContext.Tasks.FindAsync(id);
-        if (task == null)
-        {
-            return NotFound();
-        }
-
-        return task.Adapt<TaskItemResponse>();
+        return await _taskService.GetTaskByIdAsync(id);
     }
 
     [HttpGet("{id}/project")]
-    public async Task<ActionResult<ProjectResponse>> GetProjectForTask(int id)
+    public async Task<ActionResult<ProjectResponse>> GetProjectByTask(int id)
     {
         var task = await _dbContext.Tasks
             .Include(t => t.Project)
@@ -56,39 +52,15 @@ public class TasksController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<ActionResult<TaskItem>> CreateTask([FromBody] CreateTaskItemDto task)
+    public async Task<ActionResult<TaskItemResponse>> CreateTask([FromBody] CreateTaskItemDto task)
     {
-        if (!ModelState.IsValid)
-        {
-            return BadRequest(ModelState);
-        }
-        
-        bool taskExists = await _dbContext.Tasks
-            .AnyAsync(t => t.ProjectId == task.ProjectId && 
-                           t.Title.ToLower() == task.Title.ToLower());
-    
-        if (taskExists)
-        {
-            return BadRequest($"Task '{task.Title}' already exists in this project");
-        }
+        return await _taskService.CreateTaskAsync(task);
+    }
 
-        if (!await _dbContext.Projects.AnyAsync(p => p.Id == task.ProjectId))
-        {
-            return BadRequest($"Project with ID {task.ProjectId} does not exist");
-        }
-
-        var newTask = new TaskItem
-        {
-            Title = task.Title,
-            Description = task.Description,
-            Created = DateTime.Now,
-            DueDate = task.DueDate,
-            ProjectId = task.ProjectId
-        };
-
-        _dbContext.Add(newTask);
-        await _dbContext.SaveChangesAsync();
-        
-        return CreatedAtAction(nameof(GetTaskById), new { id = newTask.Id }, newTask.Adapt<TaskItemResponse>()); 
+    [HttpPatch("{taskId}/status")]
+    public async Task<ActionResult<Result>> UpdateTaskStatus(int taskId, [FromBody] UpdateTaskStatusDto newStatus)
+    {
+        if (!ModelState.IsValid) return BadRequest(ModelState);
+        return await _taskService.UpdateTaskStatusAsync(taskId, newStatus.Status!.Value);
     }
 }
