@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations.Schema;
+using TaskMaster.Models.Enums;
 
 namespace TaskMaster.Models;
 
@@ -12,6 +13,7 @@ public class TaskItem
     
     public required DateTime Created { get; set; }
     
+    public TaskItemStatus Status { get; set; } = TaskItemStatus.Analysis;
     public DateTime? DueDate { get; set; }
 
     [ForeignKey("ProjectId")]
