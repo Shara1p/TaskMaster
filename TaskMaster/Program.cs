@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using TaskMaster.Data;
+using TaskMaster.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -8,6 +9,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddScoped<ITaskService, TaskService>();
 // Get database path - try root first (where app runs from based on cwd in launch.json)
 // then fallback to TaskMaster subdirectory
 var dbPath = "taskmaster.db";
