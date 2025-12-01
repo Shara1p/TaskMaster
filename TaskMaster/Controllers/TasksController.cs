@@ -58,9 +58,14 @@ public class TasksController : ControllerBase
     }
 
     [HttpPatch("{taskId}/status")]
-    public async Task<ActionResult<Result>> UpdateTaskStatus(int taskId, [FromBody] UpdateTaskStatusDto newStatus)
+    public async Task<ActionResult> UpdateTaskStatus(int taskId, [FromBody] UpdateTaskStatusDto newStatus)
     {
-        if (!ModelState.IsValid) return BadRequest(ModelState);
-        return await _taskService.UpdateTaskStatusAsync(taskId, newStatus.Status!.Value);
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
+
+        var result = await _taskService.UpdateTaskStatusAsync(taskId, newStatus.Status!.Value);
+        return result.IsSuccess
+            ? NoContent()           
+            : BadRequest(result.ErrorMessage); 
     }
 }
