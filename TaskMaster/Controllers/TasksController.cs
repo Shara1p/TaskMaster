@@ -1,8 +1,4 @@
-using Mapster;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using TaskMaster.Data;
-using TaskMaster.Models;
 using TaskMaster.Models.DTO;
 using TaskMaster.Services;
 
@@ -12,12 +8,10 @@ namespace TaskMaster.Controllers;
 [Route("api/[controller]")]
 public class TasksController : ControllerBase
 {
-    private readonly ApplicationDbContext _dbContext;
     private readonly ITaskService _taskService;
 
-    public TasksController(ApplicationDbContext dbContext, ITaskService taskService)
+    public TasksController(ITaskService taskService)
     {
-        _dbContext = dbContext;
         _taskService = taskService;
     }
 
@@ -36,19 +30,7 @@ public class TasksController : ControllerBase
     [HttpGet("{id}/project")]
     public async Task<ActionResult<ProjectResponse>> GetProjectByTask(int id)
     {
-        var task = await _dbContext.Tasks
-            .Include(t => t.Project)
-            .FirstOrDefaultAsync(t => t.Id == id);
-        if (task == null)
-        {
-            return NotFound();
-        }
-
-        if (task.Project == null)
-        {
-            return NotFound("Project not found or task doesn't link to any project");
-        }
-        return task.Project.Adapt<ProjectResponse>();
+        return await _taskService.GetProjectByTaskAsync(id);
     }
 
     [HttpPost]
