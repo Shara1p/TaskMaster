@@ -10,6 +10,7 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddScoped<ITaskService, TaskService>();
+builder.Services.AddScoped<IProjectService, ProjectService>();
 // Get database path - try root first (where app runs from based on cwd in launch.json)
 // then fallback to TaskMaster subdirectory
 var dbPath = "taskmaster.db";
