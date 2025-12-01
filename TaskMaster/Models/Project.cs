@@ -8,7 +8,7 @@ public class Project
     
     public string? Description { get; set; }
     
-    public DateTime? Created { get; set; }
+    public DateTime Created { get; set; } = DateTime.UtcNow;
     
     public List<TaskItem>? Tasks { get; set; }
 }
