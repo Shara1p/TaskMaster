@@ -30,8 +30,12 @@ public class TaskService : ITaskService
 
     public async Task<ActionResult<IEnumerable<TaskItemResponse>>> GetAllTasksAsync()
     {
-        var taskEntities = await _dbContext.Tasks.ToListAsync();
-        return taskEntities.Adapt<List<TaskItemResponse>>();
+        var taskEntities = await _dbContext.Tasks
+           .AsNoTracking()
+           .ToListAsync();
+
+        var mapped = taskEntities.Adapt<List<TaskItemResponse>>();
+        return new OkObjectResult(mapped);
     }
 
     public async Task<ActionResult<ProjectResponse>> GetProjectByTaskAsync(int id)
