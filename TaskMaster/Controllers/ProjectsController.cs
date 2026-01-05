@@ -1,4 +1,6 @@
+using Mapster;
 using Microsoft.AspNetCore.Mvc;
+using TaskMaster.Models;
 using TaskMaster.Models.DTO;
 using TaskMaster.Services;
 
@@ -16,21 +18,42 @@ public class ProjectsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<ProjectResponse>>> GetAllProjects()
+    public async Task<ActionResult<IEnumerable<Project>?>> GetAllProjects()
     {
-        return await _projectService.GetAllProjectsAsync();
+        var projects = _projectService.GetAllProjectsAsync();
+        if (projects == null)
+        {
+            return NoContent();
+        }
+        return Ok(projects);
     }
 
     [HttpGet("{id}")]
-    public async Task<ActionResult<ProjectResponse>> GetProject(int id)
+    public async Task<ActionResult<Project>> GetProject(int id)
     {
-        return await _projectService.GetProjectByIdAsync(id);
+        var project = _projectService.GetProjectByIdAsync(id);
+        if (project == null)
+        {
+            return NotFound();
+        }
+        return Ok(project);
     }
 
     [HttpGet("{id}/tasks")]
-    public async Task<ActionResult<IEnumerable<TaskItemResponse>>> GetTasks(int id)
+    public async Task<ActionResult<IEnumerable<TaskItem>>> GetTasksByProjectId(int id)
     {
-        return await _projectService.GetTasksByProjectIdAsync(id);
+        var result = await _projectService.GetTasksByProjectIdAsync(id);
+
+        if (!result.Success)
+        {
+            if (result.ProjectNotFound)
+                return NotFound($"Project with ID {id} not found.");
+            return BadRequest("An error occurred while retrieving tasks.");
+        }
+        
+        if (!result.HasTasks)
+            return NotFound($"No tasks found for Project with ID {id}.");
+        return Ok(result.Project.Tasks);
     }
 
     [HttpPost]
@@ -40,6 +63,20 @@ public class ProjectsController : ControllerBase
         {
             return BadRequest();
         }
-        return await _projectService.CreateProjectAsync(project);
+        var newProject = new Project
+        {
+            Name = project.Name!,
+            Description = project.Description,
+            Created = DateTime.UtcNow,
+        };
+        
+        var result = await _projectService.CreateProjectAsync(newProject);
+        if (!result.Success)
+        {
+            if (result.ProjectExists)
+                return Conflict($"Project with name '{project.Name}' already exists.");
+            return BadRequest("An error occurred while creating the project.");
+        }
+        return CreatedAtAction(nameof(GetProject), new { id = result.Project!.Id }, result.Project.Adapt<ProjectResponse>());
     }
 }
