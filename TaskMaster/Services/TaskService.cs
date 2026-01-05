@@ -1,9 +1,6 @@
-using Microsoft.AspNetCore.Mvc;
-using Mapster;
 using Microsoft.EntityFrameworkCore;
 using TaskMaster.Data;
 using TaskMaster.Models;
-using TaskMaster.Models.DTO;
 using TaskMaster.Models.Enums;
 
 namespace TaskMaster.Services;
@@ -17,96 +14,78 @@ public class TaskService : ITaskService
         _dbContext = dbContext;
     }
 
-    public async Task<ActionResult<TaskItemResponse>> GetTaskByIdAsync(int id)
+    public async Task<TaskOperationResult> GetTaskByIdAsync(int id)
     {
         var task = await _dbContext.Tasks.FindAsync(id);
-        if (task == null)
-        {
-            return new NotFoundResult();
-        }
+        if (task == null) return new TaskOperationResult { TaskNotFound = true, Success = false };
 
-        return new OkObjectResult(task.Adapt<TaskItemResponse>());
+        return new TaskOperationResult { Task = task, TaskNotFound = false, Success = true };
     }
 
-    public async Task<ActionResult<IEnumerable<TaskItemResponse>>> GetAllTasksAsync()
+    public async Task<IEnumerable<TaskItem>?> GetAllTasksAsync()
     {
         var taskEntities = await _dbContext.Tasks
            .AsNoTracking()
            .ToListAsync();
 
-        var mapped = taskEntities.Adapt<List<TaskItemResponse>>();
-        return new OkObjectResult(mapped);
+        if (!taskEntities.Any()) return null;
+
+        return taskEntities;
     }
 
-    public async Task<ActionResult<ProjectResponse>> GetProjectByTaskAsync(int id)
+    public async Task<Project?> GetProjectByTaskAsync(int id)
     {
         var task = await _dbContext.Tasks
             .Include(t => t.Project)
             .FirstOrDefaultAsync(t => t.Id == id);
-        if (task == null)
-        {
-            return new NotFoundResult();
-        }
+        if (task == null) return null;
 
-        if (task.Project == null)
-        {
-            return new NotFoundObjectResult("Project not found or task doesn't link to any project");
-        }
-        return task.Project.Adapt<ProjectResponse>();
+        if (task.Project == null) return null;
+
+        return task.Project;
     }
 
-    public async Task<ActionResult<TaskItemResponse>> CreateTaskAsync(CreateTaskItemDto task)
+    public async Task<TaskOperationResult> CreateTaskAsync(TaskItem task)
     {
-        if (task == null)
-        {
-            return new BadRequestObjectResult("Task data is required");
-        }
+        if (task == null) return new TaskOperationResult { Task = null, Success = false, TaskNotFound = false };
 
         bool taskExists = await _dbContext.Tasks
             .AnyAsync(t => t.ProjectId == task.ProjectId &&
                            t.Title.ToLower() == task.Title.ToLower());
 
-        if (taskExists)
-        {
-            return new BadRequestObjectResult($"Task '{task.Title}' already exists in this project");
-        }
+        if (taskExists) return new TaskOperationResult { Task = null, Success = false, TaskExists = true };
 
         if (!await _dbContext.Projects.AnyAsync(p => p.Id == task.ProjectId))
-        {
-            return new BadRequestObjectResult($"Project with ID {task.ProjectId} does not exist");
-        }
+            return new TaskOperationResult { Task = null, Success = false, TaskNotFound = true };
 
         var newTask = new TaskItem
         {
             Title = task.Title,
             Description = task.Description,
-            Created = DateTime.Now,
+            Created = DateTime.UtcNow,
             DueDate = task.DueDate,
             ProjectId = task.ProjectId,
-            Status = Enum.Parse<TaskItemStatus>(task.Status)
+            Status = task.Status
         };
 
         _dbContext.Add(newTask);
         await _dbContext.SaveChangesAsync();
 
-        var response = newTask.Adapt<TaskItemResponse>();
-        return new CreatedResult($"/api/tasks/{newTask.Id}", response);
+        return new TaskOperationResult { Task = newTask, Success = true };
     }
 
-    public async Task<Result> UpdateTaskStatusAsync(int taskId, TaskItemStatus newStatus)
+    public async Task<TaskOperationResult> UpdateTaskStatusAsync(int taskId, TaskItemStatus newStatus)
     {
         var task = await _dbContext.Tasks.FindAsync(taskId);
         if (task == null)
-        {
-            return Result.Failure($"Task with ID {taskId} not found");
-        }
+            return new TaskOperationResult { Task = null, Success = false, TaskNotFound = true };
+
         if (!IsValidStatusTransition(task.Status, newStatus))
-        {
-            return Result.Failure($"Invalid status transition from {task.Status} to {newStatus}");
-        }
+            return new TaskOperationResult { Task = null, Success = false, InvalidTransition = true };
+
         task.Status = newStatus;
         await _dbContext.SaveChangesAsync();
-        return Result.Success();
+        return new TaskOperationResult { Task = task, Success = true };
     }
 
     private bool IsValidStatusTransition(TaskItemStatus currentStatus, TaskItemStatus newStatus)
@@ -127,28 +106,31 @@ public class TaskService : ITaskService
         };
     }
 
-    public async Task<Result> AssignTaskAsync(int taskId, int projectId)
+    public async Task<TaskOperationResult> AssignTaskAsync(int taskId, int projectId)
     {
-        var (task, failure) = await GetTaskOrFailureAsync(taskId);
-        if (failure != null) return failure;
+        var (task, failure) = await FindTaskAsync(taskId);
+        if (failure) 
+            return new TaskOperationResult { Task = null, Success = false, TaskNotFound = true };
+
         task!.ProjectId = projectId;
         await _dbContext.SaveChangesAsync();
-        return Result.Success();
+        return new TaskOperationResult { Task = task, Success = true };
     }
 
-    public async Task<Result> DeleteTaskAsync(int taskId)
+    public async Task<TaskOperationResult> DeleteTaskAsync(int taskId)
     {
-        var (task, failure) = await GetTaskOrFailureAsync(taskId);
-        if (failure != null) return failure;
+        var (task, failure) = await FindTaskAsync(taskId);
+        if (failure) 
+            return new TaskOperationResult { Task = null, Success = false, TaskNotFound = true };
 
         _dbContext.Tasks.Remove(task!);
         await _dbContext.SaveChangesAsync();
-        return Result.Success();
+        return new TaskOperationResult { Task = task, Success = true };
     }
-    private async Task<(TaskItem? Task, Result? Failure)> GetTaskOrFailureAsync(int taskId)
+    private async Task<(TaskItem? Task, bool Failure)> FindTaskAsync(int taskId)
     {
         var task = await _dbContext.Tasks.FindAsync(taskId);
-        if (task == null) return (default, Result.Failure($"Task with ID {taskId} not found"));
-        return (task, null);
+        if (task == null) return (default, true);
+        return (task, false);
     }
 }

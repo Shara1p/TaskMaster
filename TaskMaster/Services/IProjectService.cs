@@ -1,11 +1,11 @@
-using Microsoft.AspNetCore.Mvc;
-using TaskMaster.Models.DTO;
+using TaskMaster.Models;
 
 namespace TaskMaster.Services;
+
 public interface IProjectService
 {
-    Task<ActionResult<ProjectResponse>> GetProjectByIdAsync(int id);
-    Task<ActionResult<IEnumerable<ProjectResponse>>> GetAllProjectsAsync();
-    Task<ActionResult<IEnumerable<TaskItemResponse>>> GetTasksByProjectIdAsync(int projectId);
-    Task<ActionResult<ProjectResponse>> CreateProjectAsync(CreateProjectDto project);
+    Task <Project?> GetProjectByIdAsync(int id);
+    Task<IEnumerable<Project>?> GetAllProjectsAsync();
+    Task<ProjectOperationResult> GetTasksByProjectIdAsync(int projectId);
+    Task<ProjectOperationResult> CreateProjectAsync(Project project);
 }

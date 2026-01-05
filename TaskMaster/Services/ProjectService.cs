@@ -1,10 +1,6 @@
-
-using Mapster;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TaskMaster.Data;
 using TaskMaster.Models;
-using TaskMaster.Models.DTO;
 
 namespace TaskMaster.Services;
 
@@ -17,76 +13,63 @@ public class ProjectService : IProjectService
         _dbContext = dbContext;
     }
 
-    public async Task<ActionResult<ProjectResponse>> GetProjectByIdAsync(int id)
+    public async Task<Project?> GetProjectByIdAsync(int id)
     {
         var project = await _dbContext.Projects
              .Include(p => p.Tasks)
              .FirstOrDefaultAsync(p => p.Id == id);
 
-        if (project == null)
-        {
-            return new BadRequestObjectResult($"Project with id {id} not found");
-        }
+        if (project == null) return null;
 
-        return new OkObjectResult(project.Adapt<ProjectResponse>());
+        return project;
     }
 
-    public async Task<ActionResult<IEnumerable<ProjectResponse>>> GetAllProjectsAsync()
+    public async Task<IEnumerable<Project>?> GetAllProjectsAsync()
     {
         var projects = await _dbContext.Projects
                     .Include(p => p.Tasks)
                     .ToListAsync();
 
-        if (projects == null || !projects.Any())
-        {
-            return new BadRequestObjectResult("No projects found");
-        }
+        if (projects == null || !projects.Any()) return null;
 
-        return new OkObjectResult(projects.Adapt<List<ProjectResponse>>());
+        return projects;
     }
 
-    public async Task<ActionResult<IEnumerable<TaskItemResponse>>> GetTasksByProjectIdAsync(int projectId)
+    public async Task<ProjectOperationResult> GetTasksByProjectIdAsync(int projectId)
     {
         var project = await _dbContext.Projects
             .Include(p => p.Tasks)
+            .AsNoTracking()
             .FirstOrDefaultAsync(p => p.Id == projectId);
 
-        if (project == null)
-        {
-            return new BadRequestObjectResult($"Project with {projectId} not found");
-        }
+        if (project == null) 
+            return new ProjectOperationResult { Project = null, Success = false, ProjectNotFound = true };
 
-        var tasks = project.Tasks.Adapt<List<TaskItemResponse>>();
-        return new OkObjectResult(tasks);
+        if (project.Tasks == null || !project.Tasks.Any()) return new ProjectOperationResult 
+            { Project = project, Success = true, ProjectNotFound = false, HasTasks = false };
+
+        return new ProjectOperationResult 
+            { Project = project, Success = true, ProjectNotFound = false, HasTasks = true };
     }
 
-    public async Task<ActionResult<ProjectResponse>> CreateProjectAsync(CreateProjectDto project)
+    public async Task<ProjectOperationResult> CreateProjectAsync(Project project)
     {
         if (project == null)
         {
-            return new BadRequestObjectResult("Project data is null");
+            return new ProjectOperationResult { Project = null, Success = false};
         }
 
         if (await _dbContext.Projects.AnyAsync(p => p.Name == project.Name))
         {
-            return new BadRequestObjectResult($"Project with name {project.Name} already exists");
+            return new ProjectOperationResult { Project = null, Success = false, ProjectExists = true };
         }
 
-        // var projectEntity = project.Adapt<Project>();
-        // projectEntity.Id = 0;                // ignore client id
-        // projectEntity.Created = DateTime.UtcNow; 
-        // projectEntity.Tasks = null;          // avoid creating related tasks from DTO
-        // _dbContext.Projects.Add(projectEntity);
-        // await _dbContext.SaveChangesAsync();
+        project.Created = DateTime.UtcNow;
 
-        // ask about this 
-
-        var projectEntity = project.Adapt<Project>();
-        _dbContext.Projects.Add(projectEntity);
+        _dbContext.Projects.Add(project);
         await _dbContext.SaveChangesAsync();
 
-        var response = projectEntity.Adapt<ProjectResponse>();
-        return new OkObjectResult(response);
+        return new ProjectOperationResult { Project = project, Success = true, ProjectNotFound = false };
     }
 
 }
