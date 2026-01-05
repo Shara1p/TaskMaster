@@ -13,7 +13,7 @@ public class TaskItem
     
     public required DateTime Created { get; set; }
     
-    public TaskItemStatus Status { get; set; } = TaskItemStatus.Analysis;
+    public TaskItemStatus Status { get; set; }
     public DateTime? DueDate { get; set; }
 
     [ForeignKey("ProjectId")]

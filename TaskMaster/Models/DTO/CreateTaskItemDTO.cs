@@ -12,7 +12,7 @@ public class CreateTaskItemDto
     [StringLength(100)]
     public string? Description { get; set; }
     
-    public string Status { get; set; } = "Analysis";
+    public string? Status { get; set; } 
 
     public DateTime? DueDate { get; set; }
     
