@@ -20,23 +20,23 @@ public class ProjectsController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<Project>?>> GetAllProjects()
     {
-        var projects = _projectService.GetAllProjectsAsync();
+        var projects = await _projectService.GetAllProjectsAsync();
         if (projects == null)
         {
             return NoContent();
         }
-        return Ok(projects);
+        return Ok(projects.Adapt<IEnumerable<ProjectResponse>>());
     }
 
     [HttpGet("{id}")]
     public async Task<ActionResult<Project>> GetProject(int id)
     {
-        var project = _projectService.GetProjectByIdAsync(id);
+        var project = await _projectService.GetProjectByIdAsync(id);
         if (project == null)
         {
-            return NotFound();
+            return NotFound($"Project with ID {id} not found.");
         }
-        return Ok(project);
+        return Ok(project.Adapt<ProjectResponse>());
     }
 
     [HttpGet("{id}/tasks")]
@@ -53,7 +53,7 @@ public class ProjectsController : ControllerBase
         
         if (!result.HasTasks)
             return NotFound($"No tasks found for Project with ID {id}.");
-        return Ok(result.Project.Tasks);
+        return Ok(result.Project.Tasks.Adapt<IEnumerable<TaskItemResponse>>());
     }
 
     [HttpPost]
